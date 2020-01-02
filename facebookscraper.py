@@ -1,7 +1,10 @@
 # coding=utf-8
-from time import sleep
 import os
-
+import re
+import csv
+from time import sleep
+from datetime import datetime
+from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.common.exceptions import StaleElementReferenceException
 from selenium.common.exceptions import NoSuchElementException
@@ -61,7 +64,7 @@ while True:
             "window.scrollTo(0,document.documentElement.scrollHeight);")
 
         # loading page waiting time
-        sleep(10)
+        sleep(5)
 
         # compare new and initial scroll height
         new_height = driver.execute_script(
@@ -83,16 +86,17 @@ print("Total number of posts: ", total_number_of_posts)
 for post in range(total_number_of_posts):
     actions = ActionChains(driver)
     element = all_posts[post]
+    driver.implicitly_wait(5)
     actions.move_to_element(element).click().perform()
     driver.execute_script("scrollBy(0,500);")
     try:
+        driver.implicitly_wait(2)
         driver.find_element_by_xpath(
             '//div[@data-testid="UFI2ViewOptionsSelector/menuRoot"]/div/ul/li[last()]').click()
     except StaleElementReferenceException:
         pass
-    sleep(3)
+    sleep(2)
 
-print("All comments selected")
 
 # load more more comments/click view more comments
 view_more_comments = driver.find_elements_by_xpath(
@@ -100,15 +104,46 @@ view_more_comments = driver.find_elements_by_xpath(
 for elements in view_more_comments:
     driver.execute_script("arguments[0].click();", elements)
     sleep(2)
-    print("found comments: ", str(len(elements)))
 
-# comments_ul = driver.find_elements_by_class_name("_7791")
 
-# for span in comments_ul:
-#     parent_span = span.find_elements_by_class_name("_3l3x")
-#     for inner_span in parent_span:
-#         text_span = inner_span.find_element_by_tag_name("span").text
-#         print("comments", text_span)
+current_time = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
+csv_path = f"./csv/facebook_{current_time}.csv"
+fp = open(csv_path, "w")
+wr = csv.writer(fp, dialect='excel')
+wr.writerow(['from_user', 'Comments', 'Time', 'Reactions'])
 
-# # for com in comments:
-# #     print(com.text)
+while True:
+    sleep(5)
+    comments_ul = driver.find_element_by_xpath(
+        '//*[@id="u_1k_51"]/div/div[3]/ul')
+    try:
+
+        for single_comment in comments_ul:
+            data = []
+            from_user = single_comment.find_element_by_xpath(
+                '//*[@id="u_1j_7t"]/div/div[3]/ul/li[1]/div[1]/div/div[2]/div/div[1]/div[1]/div/div[1]/div/div/div/a').text
+            print('from_user', from_user)
+            data.append(from_user)
+
+            comment = single_comment.find_element_by_xpath(
+                '//*[@id="u_1j_7t"]/div/div[3]/ul/li[1]/div[1]/div/div[2]/div/div[1]/div[1]/div/div[1]/div/div/div/span/span/span').text
+            data.append(comment)
+
+            comment_time = single_comment.find_element_by_xpath(
+                '//*[@id="js_2mk"]').get_attribute('datetime')
+            data.append(comment_time)
+
+            reactions = single_comment.find_element_by_xpath(
+                '//*[@id="js_yj"]/a/span[2]').text
+            data.append(reactions)
+
+            print('data', data)
+
+            wr = csv.writer(fp, dialect='excel')
+            wr.writerow(data)
+
+    except NoSuchElementException:
+        print(csv_path, " writing complete!")
+        fp.close()
+        driver.quit()
+        break

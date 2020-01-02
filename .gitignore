@@ -1,5 +1,6 @@
 /ven
 .vscode/
+csv/
 *.log
 .DS_Store
 creds.txt
