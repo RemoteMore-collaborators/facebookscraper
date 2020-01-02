@@ -1,11 +1,12 @@
 # coding=utf-8
 from time import sleep
-
 import os
 
 from selenium import webdriver
+from selenium.common.exceptions import StaleElementReferenceException
 from selenium.common.exceptions import NoSuchElementException
 from selenium.common.exceptions import TimeoutException
+from selenium.webdriver import ActionChains
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import expected_conditions as EC
@@ -20,7 +21,6 @@ with open("creds.txt", 'r') as f:
     details = creds.split(",")
     user = details[0]
     passw = details[1]
-
 
 # web driver path
 driver = webdriver.Chrome('./chromedriver')
@@ -60,8 +60,8 @@ while True:
         driver.execute_script(
             "window.scrollTo(0,document.documentElement.scrollHeight);")
 
-        # loading page waiting time _4sxd
-        sleep(15)
+        # loading page waiting time
+        sleep(10)
 
         # compare new and initial scroll height
         new_height = driver.execute_script(
@@ -73,39 +73,42 @@ while True:
     except:
         print("cannot scroll any more")
 
-# locate comment link and click to show comments
-# wait.until(EC.element_to_be_clickable(
-#     (By.XPATH, "//a[@data-testid='UFI2CommentsCount/root']")))
+# locate all posts available with comments
+all_posts = driver.find_elements_by_xpath(
+    "//a[@data-testid='UFI2ViewOptionsSelector/link']")
+total_number_of_posts = len(all_posts)
+print("Total number of posts: ", total_number_of_posts)
 
+# select all comments from dropdown menu
+for post in range(total_number_of_posts):
+    actions = ActionChains(driver)
+    element = all_posts[post]
+    actions.move_to_element(element).click().perform()
+    driver.execute_script("scrollBy(0,500);")
+    try:
+        driver.find_element_by_xpath(
+            '//div[@data-testid="UFI2ViewOptionsSelector/menuRoot"]/div/ul/li[last()]').click()
+    except StaleElementReferenceException:
+        pass
+    sleep(3)
 
-# click comment buttons
-show_comments = driver.find_elements_by_xpath(
-    "//a [@data-testid='UFI2CommentsCount/root']")
-for elem in show_comments:
-    driver.execute_script("arguments[0].click();", elem)
-    sleep(2)
-
-# click and select all comments as default is most relevant
-all_comments = driver.find_elements_by_xpath(
-    "//a [@data-testid='UFI2ViewOptionsSelector/link']")
-for elem in all_comments:
-    driver.execute_script("arguments[0].click();", elem)
-    sleep(2)
+print("All comments selected")
 
 # load more more comments/click view more comments
 view_more_comments = driver.find_elements_by_xpath(
     "//a [@data-testid='UFI2CommentsPagerRenderer/pager_depth_0']")
-for elem in view_more_comments:
-    driver.execute_script("arguments[0].click();", elem)
+for elements in view_more_comments:
+    driver.execute_script("arguments[0].click();", elements)
     sleep(2)
+    print("found comments: ", str(len(elements)))
 
-comments_ul = driver.find_elements_by_class_name("_7791")
+# comments_ul = driver.find_elements_by_class_name("_7791")
 
-for span in comments_ul:
-    parent_span = span.find_elements_by_class_name("_3l3x")
-    for inner_span in parent_span:
-        text_span = inner_span.find_element_by_tag_name("span").text
-        print("comments", text_span)
+# for span in comments_ul:
+#     parent_span = span.find_elements_by_class_name("_3l3x")
+#     for inner_span in parent_span:
+#         text_span = inner_span.find_element_by_tag_name("span").text
+#         print("comments", text_span)
 
-# for com in comments:
-#     print(com.text)
+# # for com in comments:
+# #     print(com.text)
