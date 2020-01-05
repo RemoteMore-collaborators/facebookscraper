@@ -48,6 +48,7 @@ button = driver.find_element_by_xpath("//button[@id='loginbutton']")
 button.click()
 print("Facebook logged in...")
 
+
 # redirect to CandyCrushSodaSaga page
 driver.get(candy_link)
 print('Redirected to CandyCrushSodaSaga page')
@@ -91,8 +92,7 @@ for post in range(total_number_of_posts):
     driver.execute_script("scrollBy(0,500);")
     try:
         driver.implicitly_wait(2)
-        driver.find_element_by_xpath(
-            '//div[@data-testid="UFI2ViewOptionsSelector/menuRoot"]/div/ul/li[last()]').click()
+        
     except StaleElementReferenceException:
         pass
     sleep(2)
