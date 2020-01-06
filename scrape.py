@@ -46,31 +46,25 @@ chrome_options.add_argument("--window-size=%s" % WINDOW_SIZE)
 chrome_options.add_argument("--disable-notifications")
 chrome_options.add_argument("--disable-infobars")
 chrome_options.add_argument("--mute-audio")
-chrome_options.add_argument("--headless")
+# chrome_options.add_argument("--headless")
 
 driver = webdriver.Chrome(executable_path=os.environ.get(
     "CHROMEDRIVER_PATH"), options=chrome_options)
 # driver.set_page_load_timeout(300)
 
 logger.info("Opening page..")
-
 driver.get(URL)
-time.sleep(10)
 
 try:
     logger.info("Waiting for page to load...")
-    time.sleep(10)
-    el = WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((By.ID, "u_0_ek")))
+    el = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "u_0_ej")))
 except TimeoutException as err:
     logger.info("Something went wrong trying again")
     failed = True
     tries = 0
     while failed:
         try:
-            time.sleep(20)
-            el = WebDriverWait(driver, 10).until(
-                EC.presence_of_element_located((By.ID, "u_0_ek")))
+            el = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "u_0_ej")))
         except TimeoutException as err:
             if tries >= 10:
                 logger.error(
