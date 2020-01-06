@@ -136,5 +136,8 @@ dmypy.json
 *.html
 *.json
 chromedriver
-**/csv
-**/logs
+
+**/csv/*
+!/csv/csv.logs
+**/logs/*
+!/logs/logs
