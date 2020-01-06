@@ -57,7 +57,7 @@ driver.get(URL)
 time.sleep(10)
 try:
     logger.info("Waiting for page to load...")
-    el = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "u_0_ek")))
+    el = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "u_0_ej")))
 except TimeoutException as err:
     logger.info("Something went wrong trying again")
     exit()
@@ -76,9 +76,9 @@ not_now.click()
 
 time.sleep(1)
 
-driver.execute_script(
-    "document.getElementById('u_0_ek').style.display = 'none';")
-driver.execute_script("document.getElementById('u_0_ej').style.height = '0';")
+# driver.execute_script(
+#     "document.getElementById('u_0_ek').style.display = 'none';")
+# driver.execute_script("document.getElementById('u_0_ej').style.height = '0';")
 driver.execute_script(
     "document.querySelector('#content>div>div>div._1qkq._1ql0>div._1pfm').style.height = '0';")
 driver.execute_script(
