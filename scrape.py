@@ -46,7 +46,7 @@ chrome_options.add_argument("--window-size=%s" % WINDOW_SIZE)
 chrome_options.add_argument("--disable-notifications")
 chrome_options.add_argument("--disable-infobars")
 chrome_options.add_argument("--mute-audio")
-# chrome_options.add_argument("--headless")
+chrome_options.add_argument("--headless")
 
 driver = webdriver.Chrome(executable_path=os.environ.get(
     "CHROMEDRIVER_PATH"), options=chrome_options)
@@ -60,22 +60,7 @@ try:
     el = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "u_0_ej")))
 except TimeoutException as err:
     logger.info("Something went wrong trying again")
-    failed = True
-    tries = 0
-    while failed:
-        try:
-            el = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "u_0_ej")))
-        except TimeoutException as err:
-            if tries >= 10:
-                logger.error(
-                    "Something went wrong please check your internet connection")
-                driver.quit()
-                exit()
-            else:
-                tries += 1
-                logger.info(f"TimeoutException, retrying {tries} times...")
-        else:
-            failed = False
+    exit()
 
 logger.info("Page loaded!")
 time.sleep(3)
@@ -252,8 +237,6 @@ comment_creation_time = "livetimestamp"
 
 post_block_html = soup.select(post_block)
 post_block_html_to_parsed = post_block_html[:NUMBER_OF_POSTS]
-print(len(post_block_html))
-print(len(post_block_html_to_parsed))
 
 driver.quit()
 
