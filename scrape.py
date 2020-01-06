@@ -50,7 +50,7 @@ chrome_options.add_argument("--headless")
 
 driver = webdriver.Chrome(executable_path=os.environ.get(
     "CHROMEDRIVER_PATH"), options=chrome_options)
-# driver.set_page_load_timeout(300)
+driver.set_page_load_timeout(300)
 
 logger.info("Opening page..")
 driver.get(URL)
