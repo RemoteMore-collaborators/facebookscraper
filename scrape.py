@@ -76,9 +76,9 @@ not_now.click()
 
 time.sleep(1)
 
-# driver.execute_script(
-#     "document.getElementById('u_0_ek').style.display = 'none';")
-# driver.execute_script("document.getElementById('u_0_ej').style.height = '0';")
+# driver.execute_script(document.getElementById('u_0_ek').style.display = 'none';")
+driver.execute_script("document.getElementById('u_0_ej').style.height = '0';")
+driver.execute_script("document.getElementById('u_0_ej').style.height = 'none';")
 driver.execute_script(
     "document.querySelector('#content>div>div>div._1qkq._1ql0>div._1pfm').style.height = '0';")
 driver.execute_script(
