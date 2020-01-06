@@ -54,7 +54,7 @@ driver = webdriver.Chrome(executable_path=os.environ.get(
 
 logger.info("Opening page..")
 driver.get(URL)
-
+time.sleep(10)
 try:
     logger.info("Waiting for page to load...")
     el = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "u_0_ek")))
