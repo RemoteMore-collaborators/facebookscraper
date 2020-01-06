@@ -57,7 +57,7 @@ driver.get(URL)
 
 try:
     logger.info("Waiting for page to load...")
-    el = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "u_0_ej")))
+    el = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "u_0_ek")))
 except TimeoutException as err:
     logger.info("Something went wrong trying again")
     exit()
