@@ -2,6 +2,7 @@ import csv
 import time
 import gspread
 import os
+import memory_profiler
 
 from enchant.checker import SpellChecker
 from bs4 import BeautifulSoup
@@ -21,10 +22,13 @@ from selenium.common.exceptions import ElementClickInterceptedException
 
 from utils import custom_logger, paste_csv_to_wks
 
+m1 = memory_profiler.memory_usage()
+t1 = datetime.now()
+
 # CURRENT_DIR = '/home/ubuntu/facebookscraper'
 CURRENT_DIR = '.'
 WINDOW_SIZE = "1024,2080"
-URL = 'https://www.facebook.com/CandyCrushSodaSaga/posts'
+URL = "https://www.facebook.com/pg/candycrushsaga/posts/"
 SCROLL_PAUSE_TIME = 3
 EXCEPTION_SLEEP_TIME = 2
 NUMBER_OF_POSTS = 5
@@ -64,7 +68,7 @@ try:
     logger.info("Waiting for page to load...")
     time.sleep(10)
     el = WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((By.ID, "u_0_ej")))
+        EC.presence_of_element_located((By.ID, "u_0_bx")))
 except TimeoutException as err:
     logger.info("Something went wrong trying again")
     driver.quit()
@@ -86,7 +90,7 @@ time.sleep(1)
 
 try:
     driver.execute_script(
-        "document.getElementById('u_0_ej').style.height = '0';")
+        "document.getElementById('u_0_bx').style.height = '0';")
     driver.execute_script(
         "document.querySelector('#content>div>div>div._1qkq._1ql0>div._1pfm').style.height = '0';")
     driver.execute_script(
@@ -138,6 +142,10 @@ else:
 
 for (index, post) in enumerate(all_posts_to_be_parsed):
     logger.info(f"Clicking on post {index + 1}")
+
+    if(index == 17):
+        time.sleep(2)
+
     ActionChains(driver).move_to_element(post).perform()
     driver.execute_script("scrollBy(0,500);")
     post.click()
@@ -159,13 +167,9 @@ facebook_c = driver.find_element_by_xpath(
 
 try:
     driver.execute_script(
-        "document.getElementById('u_0_em').style.display = 'none';")
+        "document.getElementById('u_0_by').style.height = '0';")
     driver.execute_script(
-        "document.getElementById('u_0_em').style.height = '0';")
-    driver.execute_script(
-        "document.getElementById('u_0_ek').style.height = '0';")
-    driver.execute_script(
-        "document.getElementById('u_0_ek').style.display = 'none';")
+        "document.getElementById('u_0_by').style.display = 'none';")
 except Exception as err:
     logger.error("Did not find the element")
     logger.error(err)
@@ -187,7 +191,7 @@ for (i, block) in enumerate(comment_block):
             ActionChains(driver).move_to_element(more_comments_link).perform()
             driver.execute_script("scrollBy(0,500);")
             more_comments_link.click()
-            time.sleep(.5)
+            time.sleep(0.5)
         except NoSuchElementException as err:
             logger.info("Clicked all more comments")
             break
@@ -214,21 +218,23 @@ for (i, block) in enumerate(comment_block):
             loading_replies_len = len(loading_replies)
 
             if not loading_replies:
-                logger.info(f"Replies to click {replies_len}")
+                logger.info(f"Replies : {replies_len}")
                 replies_link = replies[0]
             elif replies_len > loading_replies_len:
-                logger.info(f"Loading replies {replies_len}")
-                logger.info(f"Replies to click {replies_len}")
+                logger.info(f"Loading : {loading_replies_len}")
+                logger.info(f"Replies : {replies_len}")
                 click_index = replies_len - loading_replies_len
                 replies_link = replies[-click_index]
             else:
+                logger.info(f"Loading : {loading_replies_len}")
+                logger.info(f"Replies : {replies_len}")
                 break
 
             try:
                 ActionChains(driver).move_to_element(replies_link).perform()
                 replies_link.click()
                 ActionChains(driver).move_to_element(facebook_c).perform()
-                time.sleep(.2)
+                time.sleep(0.2)
             except ElementClickInterceptedException as err:
                 logger.error("Element covered and not clickable")
                 time.sleep(EXCEPTION_SLEEP_TIME)
@@ -356,3 +362,11 @@ wks = gc.open("Facebook scraping")
 paste_csv_to_wks(filepath, wks, 'A2', logger)
 
 logger.info('Writing to googlesheets complete!')
+
+t2 = datetime.now()
+m2 = memory_profiler.memory_usage()
+
+time_diff = t2 - t1
+mem_diff = m2[0] - m1[0]
+logger.info(
+    f"It took {time_diff} Secs and {mem_diff} Mb to execute this method")

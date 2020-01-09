@@ -141,3 +141,4 @@ chromedriver
 !/csv/csv.logs
 **/logs/*
 !/logs/logs
+client_secret.json
