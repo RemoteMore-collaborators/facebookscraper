@@ -1,8 +1,9 @@
 import csv
 import time
-import os
 import gspread
+import os
 
+from enchant.checker import SpellChecker
 from bs4 import BeautifulSoup
 from datetime import datetime
 from oauth2client.service_account import ServiceAccountCredentials
@@ -26,7 +27,7 @@ WINDOW_SIZE = "1024,2080"
 URL = 'https://www.facebook.com/CandyCrushSodaSaga/posts'
 SCROLL_PAUSE_TIME = 3
 EXCEPTION_SLEEP_TIME = 2
-NUMBER_OF_POSTS = 2
+NUMBER_OF_POSTS = 5
 
 current_time = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
 filename = f'{CURRENT_DIR}/logs/scraped_{current_time}.log'
@@ -37,7 +38,7 @@ logger.info(f'Logfile name {filename}')
 
 # Chrome browser options - Version 79.0.3945.88 (Official Build) (64-bit)
 chrome_options = Options()
-chrome_options.binary_location = os.environ.get("GOOGLE_CHROME_BIN")
+# chrome_options.binary_location = os.environ.get("GOOGLE_CHROME_BIN")
 
 chrome_options.add_argument('--no-sandbox')
 chrome_options.add_argument("--disable-gpu")
@@ -46,20 +47,27 @@ chrome_options.add_argument("--window-size=%s" % WINDOW_SIZE)
 chrome_options.add_argument("--disable-notifications")
 chrome_options.add_argument("--disable-infobars")
 chrome_options.add_argument("--mute-audio")
-chrome_options.add_argument("--headless")
+# chrome_options.add_argument("--headless")
 
-driver = webdriver.Chrome(executable_path=os.environ.get(
-    "CHROMEDRIVER_PATH"), options=chrome_options)
-driver.set_page_load_timeout(300)
+driver = webdriver.Chrome(
+    executable_path="./chromedriver", options=chrome_options)
+
+# Heroku deployment driver
+# driver = webdriver.Chrome(executable_path=os.environ.get("CHROMEDRIVER_PATH"), options=chrome_options)
+
+driver.set_page_load_timeout(500)
 
 logger.info("Opening page..")
 driver.get(URL)
 time.sleep(10)
 try:
     logger.info("Waiting for page to load...")
-    el = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "u_0_ej")))
+    time.sleep(10)
+    el = WebDriverWait(driver, 10).until(
+        EC.presence_of_element_located((By.ID, "u_0_ej")))
 except TimeoutException as err:
     logger.info("Something went wrong trying again")
+    driver.quit()
     exit()
 
 logger.info("Page loaded!")
@@ -76,13 +84,15 @@ not_now.click()
 
 time.sleep(1)
 
-# driver.execute_script(document.getElementById('u_0_ek').style.display = 'none';")
-driver.execute_script("document.getElementById('u_0_ej').style.height = '0';")
-driver.execute_script("document.getElementById('u_0_ej').style.height = 'none';")
-driver.execute_script(
-    "document.querySelector('#content>div>div>div._1qkq._1ql0>div._1pfm').style.height = '0';")
-driver.execute_script(
-    "document.querySelector('#content>div>div>div._1qkq._1ql0>div._1pfm').style.display = 'none';")
+try:
+    driver.execute_script(
+        "document.getElementById('u_0_ej').style.height = '0';")
+    driver.execute_script(
+        "document.querySelector('#content>div>div>div._1qkq._1ql0>div._1pfm').style.height = '0';")
+    driver.execute_script(
+        "document.querySelector('#content>div>div>div._1qkq._1ql0>div._1pfm').style.display = 'none';")
+except:
+    pass
 
 page = 1
 
@@ -143,10 +153,25 @@ comment_block = None
 if total_number_of_posts > NUMBER_OF_POSTS:
     comment_block = all_comment_blocks[:NUMBER_OF_POSTS]
 
-all_more_comments = []
-
 facebook_c = driver.find_element_by_xpath(
     '//div[@aria-label="Facebook"]/div/following-sibling::*')
+
+
+try:
+    driver.execute_script(
+        "document.getElementById('u_0_em').style.display = 'none';")
+    driver.execute_script(
+        "document.getElementById('u_0_em').style.height = '0';")
+    driver.execute_script(
+        "document.getElementById('u_0_ek').style.height = '0';")
+    driver.execute_script(
+        "document.getElementById('u_0_ek').style.display = 'none';")
+except Exception as err:
+    logger.error("Did not find the element")
+    logger.error(err)
+    pass
+
+
 for (i, block) in enumerate(comment_block):
     logger.info(f"Clicking on comment block {i + 1}")
     while True:
@@ -166,6 +191,10 @@ for (i, block) in enumerate(comment_block):
         except NoSuchElementException as err:
             logger.info("Clicked all more comments")
             break
+        except StaleElementReferenceException as err:
+            logger.error(err)
+            pass
+
 
 for (i, block) in enumerate(comment_block):
     logger.info(f"Clicking on replies on comment block {i + 1}")
@@ -185,8 +214,11 @@ for (i, block) in enumerate(comment_block):
             loading_replies_len = len(loading_replies)
 
             if not loading_replies:
+                logger.info(f"Replies to click {replies_len}")
                 replies_link = replies[0]
             elif replies_len > loading_replies_len:
+                logger.info(f"Loading replies {replies_len}")
+                logger.info(f"Replies to click {replies_len}")
                 click_index = replies_len - loading_replies_len
                 replies_link = replies[-click_index]
             else:
@@ -194,7 +226,6 @@ for (i, block) in enumerate(comment_block):
 
             try:
                 ActionChains(driver).move_to_element(replies_link).perform()
-                # driver.execute_script("scrollBy(0,200);")
                 replies_link.click()
                 ActionChains(driver).move_to_element(facebook_c).perform()
                 time.sleep(.2)
@@ -240,68 +271,78 @@ post_block_html_to_parsed = post_block_html[:NUMBER_OF_POSTS]
 
 driver.quit()
 
-data = []
-for (i, post_block_h) in enumerate(post_block_html_to_parsed):
-    post_title_with_time_h = post_block_h.select(post_title_with_time)
-
-    post_author = post_title_with_time_h[0].select('h5 a')[0].text
-    post_text_h = post_block_h.select(post_text)[0].text
-    time_attr = post_title_with_time_h[0].select("abbr")[0].attrs
-    time = datetime.fromtimestamp(int(time_attr['data-utime']))
-    post_reactions_h = post_block_h.findAll(
-        "span", {"data-testid": post_reactions})[0].text
-
-    line = [post_author, post_text_h, time, post_reactions_h]
-    data.append(line)
-
-    comment_block_h = post_block_h.findAll(
-        "div", {"data-testid": comment_block})
-    all_parent_comments = comment_block_h[0].findAll(
-        "div", {"data-testid": parent_comment})
-    all_child_comments = comment_block_h[0].findAll(
-        "div", {"data-testid": reply_comment})
-    all_comments = all_parent_comments + all_child_comments
-
-    for (j, comment) in enumerate(all_comments):
-        username = comment.select("._6qw4")[0].text
-
-        comment_text_h = comment.select(comment_text)
-        text = None
-        if not comment_text_h:
-            text = "IMAGE/GIF"
-        else:
-            text = comment_text_h[0].text
-
-        comment_creation_time_h = comment.findAll(
-            "abbr", {"class": [comment_creation_time]})[0].attrs
-        time = datetime.fromtimestamp(
-            int(comment_creation_time_h['data-utime']))
-        comment_reaction_h = comment.find(
-            "span", attrs={'data-testid': comment_reaction})
-
-        reaction = None
-
-        if comment_reaction_h is not None:
-            reaction = comment_reaction_h.text
-        else:
-            reaction = 0
-
-        row = [username, text, time, reaction]
-        data.append(row)
-
-    data.append(["", "", "", ""])
-
 csv_written_time = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
 filepath = f'{CURRENT_DIR}/csv/scraped_{csv_written_time}.csv'
 
-logger.info(f'Writing comments data to {filepath}...')
 
-logger.info('Writing complete!')
+def is_in_english(quote):
+  d = SpellChecker("en_US")
+  d.set_text(quote)
+  errors = [err.word for err in d]
+  return False if ((len(errors) > 5) or len(quote.split()) < 1) else True
+
 
 with open(filepath, 'w', encoding='utf-8') as csv_file:
     fileWriter = csv.writer(csv_file, dialect='excel')
-    for i in range(len(data)):
-        fileWriter.writerow(data[i])
+    logger.info(f"Writing data to {filepath}")
+
+    for (i, post_block_h) in enumerate(post_block_html_to_parsed):
+        post_title_with_time_h = post_block_h.select(post_title_with_time)
+
+        post_author = post_title_with_time_h[0].select('h5 a')[0].text
+        post_text_h = post_block_h.select(post_text)[0].text
+        time_attr = post_title_with_time_h[0].select("abbr")[0].attrs
+        time = datetime.fromtimestamp(int(time_attr['data-utime']))
+        post_reactions_h = post_block_h.findAll(
+            "span", {"data-testid": post_reactions})[0].text
+
+        line = [post_author, post_text_h, time, post_reactions_h]
+        fileWriter.writerow(line)
+
+        comment_block_h = post_block_h.findAll(
+            "div", {"data-testid": comment_block})
+        all_parent_comments = comment_block_h[0].findAll(
+            "div", {"data-testid": parent_comment})
+        all_child_comments = comment_block_h[0].findAll(
+            "div", {"data-testid": reply_comment})
+        all_comments = all_parent_comments + all_child_comments
+
+        for (j, comment) in enumerate(all_comments):
+            username = comment.select("._6qw4")[0].text
+
+            comment_text_h = comment.select(comment_text)
+            text = None
+            if not comment_text_h:
+                text = "IMAGE/GIF"
+            else:
+                text = comment_text_h[0].text
+
+            # TODO Check if the text is in english
+            if not is_in_english(text):
+                logger.info(f"'{text}' is not english")
+                continue
+
+            comment_creation_time_h = comment.findAll(
+                "abbr", {"class": [comment_creation_time]})[0].attrs
+            time = datetime.fromtimestamp(
+                int(comment_creation_time_h['data-utime']))
+            comment_reaction_h = comment.find(
+                "span", attrs={'data-testid': comment_reaction})
+
+            reaction = None
+
+            if comment_reaction_h is not None:
+                reaction = comment_reaction_h.text
+            else:
+                reaction = 0
+
+            row = [username, text, time, reaction]
+            fileWriter.writerow(row)
+
+        fileWriter.writerow(["", "", "", ""])
+
+
+logger.info('Writing complete!')
 
 logger.info('Writing to "Facebook scraping" googlesheets')
 
@@ -312,6 +353,6 @@ credentials = ServiceAccountCredentials.from_json_keyfile_name(
 
 gc = gspread.authorize(credentials)
 wks = gc.open("Facebook scraping")
-paste_csv_to_wks(filepath, wks, 'A2')
+paste_csv_to_wks(filepath, wks, 'A2', logger)
 
 logger.info('Writing to googlesheets complete!')

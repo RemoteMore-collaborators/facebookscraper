@@ -25,7 +25,13 @@ def custom_logger(logger_name, level=logging.DEBUG):
     return logger
 
 
-def paste_csv_to_wks(csv_file, sheet, cell):
+def paste_csv_to_wks(csv_file, sheet, cell, logger):
+    clean_wks = sheet.get_worksheet(0)
+    total_rows = len(clean_wks.col_values(1))
+    logger.info(f"Total number of rows on the worksheet: {total_rows}")
+
+    clean_wks.resize(rows=3)
+
     if '!' in cell:
         (tabName, cell) = cell.split('!')
         wks = sheet.worksheet(tabName)
@@ -37,5 +43,5 @@ def paste_csv_to_wks(csv_file, sheet, cell):
         csv_contents = f.read()
     body = {'requests': [{
         'pasteData': {"coordinate": {"sheetId": wks.id, "rowIndex": firstRow - 1, "columnIndex": firstColumn - 1, },
-            "data": csv_contents, "type": 'PASTE_NORMAL', "delimiter": ',', }}]}
+                      "data": csv_contents, "type": 'PASTE_NORMAL', "delimiter": ',', }}]}
     return sheet.batch_update(body)
