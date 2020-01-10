@@ -25,13 +25,13 @@ from utils import custom_logger, paste_csv_to_wks
 m1 = memory_profiler.memory_usage()
 t1 = datetime.now()
 
-# CURRENT_DIR = '/home/ubuntu/facebookscraper'
-CURRENT_DIR = '.'
+CURRENT_DIR = '/home/ubuntu/facebookscraper'
+#CURRENT_DIR = '.'
 WINDOW_SIZE = "1024,2080"
 URL = "https://www.facebook.com/pg/candycrushsaga/posts/"
 SCROLL_PAUSE_TIME = 3
 EXCEPTION_SLEEP_TIME = 2
-NUMBER_OF_POSTS = 10
+NUMBER_OF_POSTS = 2
 
 current_time = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
 filename = f'{CURRENT_DIR}/logs/scraped_{current_time}.log'
@@ -54,7 +54,7 @@ chrome_options.add_argument("--mute-audio")
 chrome_options.add_argument("--headless")
 
 driver = webdriver.Chrome(
-    executable_path="./chromedriver", options=chrome_options)
+    executable_path="/usr/bin/chromedriver", options=chrome_options)
 
 # Heroku deployment driver
 # driver = webdriver.Chrome(executable_path=os.environ.get("CHROMEDRIVER_PATH"), options=chrome_options)
@@ -86,18 +86,12 @@ time.sleep(SCROLL_PAUSE_TIME)
 not_now = driver.find_element_by_xpath('//*[@id="expanding_cta_close_button"]')
 not_now.click()
 
-time.sleep(1)
+time.sleep(5)
 
-try:
-    driver.execute_script(
-        "document.getElementById('u_0_bx').remove();")
-    driver.execute_script(
-        "document.querySelector('#content>div>div>div._1qkq._1ql0>div._1pfm').style.height = '0';")
-    driver.execute_script(
-        "document.querySelector('#content>div>div>div._1qkq._1ql0>div._1pfm').style.display = 'none';")
-except:
-    logger
-    pass
+new_see_more = WebDriverWait(driver, 10).until(EC.presence_of_element_located(
+    (By.XPATH, '//*[@id="www_pages_reaction_see_more_unitwww_pages_posts"]/div/a')))
+
+time.sleep(3)
 
 page = 1
 
@@ -106,11 +100,9 @@ logger.info(f"Currently at page {page}")
 while True:
     n = None
     try:
-        WebDriverWait(driver, 30).until(EC.element_to_be_clickable(
-            (By.XPATH, '//*[@id="www_pages_reaction_see_more_unitwww_pages_posts"]')))
-        see_more = driver.find_elements_by_xpath('//*[@id="www_pages_reaction_see_more_unitwww_pages_posts"]/div/a')
-        logger.info(see_more)
-        ActionChains(driver).move_to_element(see_more[0]).perform()
+        see_more_ = driver.find_elements_by_xpath(
+            '//*[@id="www_pages_reaction_see_more_unitwww_pages_posts"]/div/a')
+        ActionChains(driver).move_to_element(see_more_[0]).perform()
         time.sleep(SCROLL_PAUSE_TIME)
         n = False
     except JavascriptException:
@@ -126,30 +118,48 @@ while True:
         logger.info("Reached the bottom of the page")
         break
     except TimeoutException as err:
-        logger.error("Time out exception")
+        logger.error("Time out exception! Sleeping")
+        time.sleep(EXCEPTION_SLEEP_TIME)
+        logger.info("Resuming...")
         n = True
 
     all_posts_count = len(driver.find_elements_by_xpath(
         "//a[@data-testid='UFI2ViewOptionsSelector/link']"))
+    logger.info(f"All post count {all_posts_count}")
+
     if all_posts_count >= NUMBER_OF_POSTS:
         break
-
     if n:
         logger.info(f"Waiting on page {page}")
     else:
         page += 1
         logger.info(f"Moving to page {page}")
 
+
+try:
+    driver.execute_script(
+        'document.querySelectorAll("div._5hn6#u_0_bx").remove();')
+    driver.execute_script(
+        "document.querySelector('#content>div>div>div._1qkq._1ql0>div._1pfm').style.height = '0';")
+    driver.execute_script(
+        "document.querySelector('#content>div>div>div._1qkq._1ql0>div._1pfm').style.display = 'none';")
+except:
+    logger.error("Did not find the login pop up at the bottom of the page")
+    pass
+
+
 all_posts = driver.find_elements_by_xpath(
     "//a[@data-testid='UFI2ViewOptionsSelector/link']")
-
 total_number_of_posts = len(all_posts)
 all_posts_to_be_parsed = None
+logger.info(f"Total number of posts {total_number_of_posts}")
 
-if total_number_of_posts > NUMBER_OF_POSTS:
+if total_number_of_posts >= NUMBER_OF_POSTS:
     all_posts_to_be_parsed = all_posts[:NUMBER_OF_POSTS]
 else:
     all_posts_to_be_parsed = all_posts
+
+logger.info(f"Post to be parsed {len(all_posts_to_be_parsed)}")
 
 for (index, post) in enumerate(all_posts_to_be_parsed):
     logger.info(f"Clicking on post {index + 1}")
@@ -167,10 +177,14 @@ for (index, post) in enumerate(all_posts_to_be_parsed):
 all_comment_blocks = driver.find_elements_by_xpath(
     "//div[@data-testid='UFI2CommentsList/root_depth_0']")
 total_number_of_comment_blocks = len(all_comment_blocks)
+logger.info(f"Total number of comment blocks {total_number_of_comment_blocks}")
 
 comment_block = None
-if total_number_of_posts > NUMBER_OF_POSTS:
+
+if total_number_of_posts >= NUMBER_OF_POSTS:
     comment_block = all_comment_blocks[:NUMBER_OF_POSTS]
+else:
+    comment_block = all_comment_blocks
 
 facebook_c = driver.find_element_by_xpath(
     '//div[@aria-label="Facebook"]/div/following-sibling::*')
@@ -178,7 +192,7 @@ facebook_c = driver.find_element_by_xpath(
 
 try:
     driver.execute_script(
-        "document.getElementById('u_0_by').remove();")
+        "document.getElementById('u_0_bx').remove();")
 except Exception as err:
     logger.error("Did not find the element")
     logger.error(err)
@@ -304,12 +318,12 @@ with open(filepath, 'w', encoding='utf-8') as csv_file:
 
     for (i, post_block_h) in enumerate(post_block_html_to_parsed):
         post_title_with_time_h = post_block_h.select(post_title_with_time)
-        post_link_h = post_title_with_time_h[0].select('div span span a')[
-            0].attrs
+        post_link_h = post_title_with_time_h[0].select(
+            'div span span.fsm.fwn.fcg a')[0].attrs
         link_h = post_link_h.get('href', '')
         post_author = post_title_with_time_h[0].select('h5 a')[0].text
         post_text_h = post_block_h.select(post_text)[0].text
-        post_text_with_link = f'{post_text_h}, post link: {link_h}'
+        post_text_with_link = f'{post_text_h}, post link: https://www.facebook.com{link_h}'
         time_attr = post_title_with_time_h[0].select("abbr")[0].attrs
         time = datetime.fromtimestamp(int(time_attr['data-utime']))
         post_reactions_h = post_block_h.findAll(
