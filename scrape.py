@@ -31,7 +31,7 @@ WINDOW_SIZE = "1024,2080"
 URL = "https://www.facebook.com/pg/candycrushsaga/posts/"
 SCROLL_PAUSE_TIME = 3
 EXCEPTION_SLEEP_TIME = 2
-NUMBER_OF_POSTS = 5
+NUMBER_OF_POSTS = 10
 
 current_time = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
 filename = f'{CURRENT_DIR}/logs/scraped_{current_time}.log'
@@ -51,7 +51,7 @@ chrome_options.add_argument("--window-size=%s" % WINDOW_SIZE)
 chrome_options.add_argument("--disable-notifications")
 chrome_options.add_argument("--disable-infobars")
 chrome_options.add_argument("--mute-audio")
-# chrome_options.add_argument("--headless")
+chrome_options.add_argument("--headless")
 
 driver = webdriver.Chrome(
     executable_path="./chromedriver", options=chrome_options)
@@ -90,12 +90,13 @@ time.sleep(1)
 
 try:
     driver.execute_script(
-        "document.getElementById('u_0_bx').style.height = '0';")
+        "document.getElementById('u_0_bx').remove();")
     driver.execute_script(
         "document.querySelector('#content>div>div>div._1qkq._1ql0>div._1pfm').style.height = '0';")
     driver.execute_script(
         "document.querySelector('#content>div>div>div._1qkq._1ql0>div._1pfm').style.display = 'none';")
 except:
+    logger
     pass
 
 page = 1
@@ -103,11 +104,15 @@ page = 1
 logger.info(f"Currently at page {page}")
 
 while True:
+    n = None
     try:
-        see_more = driver.find_elements_by_xpath(
-            '//*[@id="www_pages_reaction_see_more_unitwww_pages_posts"]/div/a')
+        WebDriverWait(driver, 30).until(EC.element_to_be_clickable(
+            (By.XPATH, '//*[@id="www_pages_reaction_see_more_unitwww_pages_posts"]')))
+        see_more = driver.find_elements_by_xpath('//*[@id="www_pages_reaction_see_more_unitwww_pages_posts"]/div/a')
+        logger.info(see_more)
         ActionChains(driver).move_to_element(see_more[0]).perform()
         time.sleep(SCROLL_PAUSE_TIME)
+        n = False
     except JavascriptException:
         logger.info("Caught the JavascriptException exception! Sleeping")
         time.sleep(EXCEPTION_SLEEP_TIME)
@@ -120,14 +125,20 @@ while True:
     except NoSuchElementException:
         logger.info("Reached the bottom of the page")
         break
+    except TimeoutException as err:
+        logger.error("Time out exception")
+        n = True
 
     all_posts_count = len(driver.find_elements_by_xpath(
         "//a[@data-testid='UFI2ViewOptionsSelector/link']"))
     if all_posts_count >= NUMBER_OF_POSTS:
         break
 
-    page += 1
-    logger.info(f"Moving to page {page}")
+    if n:
+        logger.info(f"Waiting on page {page}")
+    else:
+        page += 1
+        logger.info(f"Moving to page {page}")
 
 all_posts = driver.find_elements_by_xpath(
     "//a[@data-testid='UFI2ViewOptionsSelector/link']")
@@ -167,9 +178,7 @@ facebook_c = driver.find_element_by_xpath(
 
 try:
     driver.execute_script(
-        "document.getElementById('u_0_by').style.height = '0';")
-    driver.execute_script(
-        "document.getElementById('u_0_by').style.display = 'none';")
+        "document.getElementById('u_0_by').remove();")
 except Exception as err:
     logger.error("Did not find the element")
     logger.error(err)
@@ -191,7 +200,7 @@ for (i, block) in enumerate(comment_block):
             ActionChains(driver).move_to_element(more_comments_link).perform()
             driver.execute_script("scrollBy(0,500);")
             more_comments_link.click()
-            time.sleep(0.5)
+            time.sleep(0.05)
         except NoSuchElementException as err:
             logger.info("Clicked all more comments")
             break
@@ -234,7 +243,7 @@ for (i, block) in enumerate(comment_block):
                 ActionChains(driver).move_to_element(replies_link).perform()
                 replies_link.click()
                 ActionChains(driver).move_to_element(facebook_c).perform()
-                time.sleep(0.2)
+                time.sleep(0.05)
             except ElementClickInterceptedException as err:
                 logger.error("Element covered and not clickable")
                 time.sleep(EXCEPTION_SLEEP_TIME)
@@ -257,6 +266,7 @@ soup = BeautifulSoup(driver.page_source, 'html.parser')
 post_block = "._5pcr.userContentWrapper"  # class name
 # class name get the abbr and use the data-utime attribute
 post_title_with_time = "._6a._5u5j._6b"
+post_link = "//div[@class='_6a _5u5j _6b']/div/span/span/a"
 post_text = "._5pbx.userContent._3576"  # class name
 post_reactions = "UFI2ReactionsCount/sentenceWithSocialContext"  # data-testid span
 post_share = "UFI2SharesCount/root"  # data-testid
@@ -282,10 +292,10 @@ filepath = f'{CURRENT_DIR}/csv/scraped_{csv_written_time}.csv'
 
 
 def is_in_english(quote):
-  d = SpellChecker("en_US")
-  d.set_text(quote)
-  errors = [err.word for err in d]
-  return False if ((len(errors) > 5) or len(quote.split()) < 1) else True
+    d = SpellChecker("en_US")
+    d.set_text(quote)
+    errors = [err.word for err in d]
+    return False if ((len(errors) > 5) or len(quote.split()) < 1) else True
 
 
 with open(filepath, 'w', encoding='utf-8') as csv_file:
@@ -294,15 +304,17 @@ with open(filepath, 'w', encoding='utf-8') as csv_file:
 
     for (i, post_block_h) in enumerate(post_block_html_to_parsed):
         post_title_with_time_h = post_block_h.select(post_title_with_time)
-
+        post_link_h = post_title_with_time_h[0].select('div span span a')[
+            0].attrs
+        link_h = post_link_h.get('href', '')
         post_author = post_title_with_time_h[0].select('h5 a')[0].text
         post_text_h = post_block_h.select(post_text)[0].text
+        post_text_with_link = f'{post_text_h}, post link: {link_h}'
         time_attr = post_title_with_time_h[0].select("abbr")[0].attrs
         time = datetime.fromtimestamp(int(time_attr['data-utime']))
         post_reactions_h = post_block_h.findAll(
             "span", {"data-testid": post_reactions})[0].text
-
-        line = [post_author, post_text_h, time, post_reactions_h]
+        line = [post_author, post_text_with_link, time, post_reactions_h]
         fileWriter.writerow(line)
 
         comment_block_h = post_block_h.findAll(
